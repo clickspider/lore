@@ -29,7 +29,21 @@ function ActivityItem({ entry }: { entry: DashEntry }) {
   return <article className={`lore-activity-item lore-activity-item--${entry.kind}`}><span aria-hidden="true" /><div><strong>{label}</strong><p>{entry.summary}</p><time>{citation(entry)}</time></div></article>;
 }
 
-export function LoreDashboard() {
+const providerIcon = {
+  slack: "https://cdn.simpleicons.org/slack/d8a24e",
+  teams: "https://cdn.simpleicons.org/microsoftteams/d8a24e",
+  obsidian: "https://cdn.simpleicons.org/obsidian/d8a24e",
+};
+
+function SourceItem({ provider, title, detail }: { provider: keyof typeof providerIcon; title: string; detail: string }) {
+  return <div className="lore-source-item"><img src={providerIcon[provider]} alt="" /><span><strong>{title}</strong><small>{detail}</small></span></div>;
+}
+
+function ChatSurface({ primary = false }: { primary?: boolean }) {
+  return <section className={primary ? "lore-chat-main" : "lore-ask"} aria-labelledby="ask-the-brain"><header><div><p>Ask the brain</p><h2 id="ask-the-brain">{primary ? "Your team, fully briefed." : "Query across your knowledge graph"}</h2></div><span>Karpathy MCP</span></header><p className="lore-chat-intro">Ask Lore about decisions, owners, blockers, and the connections between projects. Every answer should lead back to source notes.</p><CopilotChat className="lore-chat" labels={{ welcomeMessageText: "Ask Lore about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>;
+}
+
+export function LoreDashboard({ view = "chat" }: { view?: "chat" | "brain" }) {
   const [brain, setBrain] = useState<BrainData>();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -59,17 +73,18 @@ export function LoreDashboard() {
 
   const selectedProject = useMemo<DashProject | undefined>(() => brain?.projects.find((project) => project.slug === selectedSlug) ?? brain?.projects[0], [brain?.projects, selectedSlug]);
   const activity = useMemo(() => (brain?.projects.flatMap((project) => project.entries) ?? []).slice(0, 5), [brain]);
+  const chatFirst = view === "chat";
 
   useConfigureSuggestions({ suggestions: [{ title: "Open questions", message: "What remains unresolved in the knowledge graph? Cite the source notes." }, { title: "Cross-project decisions", message: "What decisions connect the current projects? Cite the source notes." }], available: "before-first-message" }, []);
 
   return <main className="lore-console">
-    <header className="lore-console-header"><a className="lore-wordmark" href="/" aria-label="Lore dashboard"><img src="/lore-logo.jpeg" alt="" /> lore</a><nav><a className="is-current" href="/">Brain</a><a href="/onboarding">Brief Lore</a></nav><div className="lore-console-status"><i /> {loading ? "Syncing" : "Vault connected"}</div></header>
+    <header className="lore-console-header"><a className="lore-wordmark" href="/" aria-label="Lore dashboard"><img src="/lore-logo.jpeg" alt="" /> lore</a><nav><a className={chatFirst ? "is-current" : ""} href="/">Chat</a><a className={!chatFirst ? "is-current" : ""} href="/brain">Brain</a><a href="/onboarding">Brief Lore</a></nav><div className="lore-console-status"><i /> {loading ? "Syncing" : "Vault connected"}</div></header>
     {error ? <div className="lore-console-error">{error} <button onClick={() => void refresh()}>Retry</button></div> : null}
-    <div className="lore-console-grid">
-      <aside className="lore-sidebar"><div className="lore-panel-title"><span>Projects</span><button onClick={() => void refresh()}>{loading ? "Syncing" : "Refresh"}</button></div><nav className="lore-project-list">{brain?.projects.map((project) => <button className={project.slug === selectedProject?.slug ? "is-active" : ""} key={project.slug} onClick={() => setSelectedSlug(project.slug)}><i /><span><strong>{project.title}</strong><small>{project.entries.length} memories</small></span><b>{project.entries.length}</b></button>)}</nav><div className="lore-source-list"><div className="lore-panel-title"><span>Sources</span></div><div><i /><span><strong>Slack threads</strong><small>Capture on mention</small></span></div><div><i /><span><strong>Teams transcripts</strong><small>Import-ready</small></span></div><div><i /><span><strong>Obsidian + Karpathy</strong><small>Local graph</small></span></div></div><p className="lore-vault-path">{brain?.brainDir ?? "Connecting to vault…"}</p></aside>
-      <section className="lore-brain" aria-live="polite">{selectedProject ? <><header className="lore-brain-header"><div><p>Project brain</p><h1>{selectedProject.title}</h1></div><span><i /> {loading ? "Syncing" : "Synced just now"}</span></header><p className="lore-brain-intro">Cited memory maintained from the conversations and documents your team already has.</p><BrainSection entries={selectedProject.entries} kind="decision" /><BrainSection entries={selectedProject.entries} kind="owner" /><BrainSection entries={selectedProject.entries} kind="open_question" /><BrainSection entries={selectedProject.entries} kind="status" /></> : <div className="lore-no-project"><h1>Your brain is ready.</h1><p>Capture a Slack thread to create the first project memory.</p></div>}</section>
+    <div className={`lore-console-grid ${chatFirst ? "is-chat-first" : "is-brain-first"}`}>
+      <aside className="lore-sidebar"><div className="lore-panel-title"><span>Projects</span><button onClick={() => void refresh()}>{loading ? "Syncing" : "Refresh"}</button></div><nav className="lore-project-list">{brain?.projects.map((project) => <button className={project.slug === selectedProject?.slug ? "is-active" : ""} key={project.slug} onClick={() => setSelectedSlug(project.slug)}><i /><span><strong>{project.title}</strong><small>{project.entries.length} memories</small></span><b>{project.entries.length}</b></button>)}</nav><div className="lore-source-list"><div className="lore-panel-title"><span>Sources</span></div><SourceItem provider="slack" title="Slack threads" detail="Capture on mention" /><SourceItem provider="teams" title="Teams transcripts" detail="Import from Brief Lore" /><SourceItem provider="obsidian" title="Obsidian + Karpathy" detail="Local graph" /></div><p className="lore-vault-path">{brain?.brainDir ?? "Connecting to vault…"}</p></aside>
+      {chatFirst ? <ChatSurface primary /> : <section className="lore-brain" aria-live="polite">{selectedProject ? <><header className="lore-brain-header"><div><p>Project brain</p><h1>{selectedProject.title}</h1></div><span><i /> {loading ? "Syncing" : "Synced just now"}</span></header><p className="lore-brain-intro">Cited memory maintained from the conversations and documents your team already has.</p><BrainSection entries={selectedProject.entries} kind="decision" /><BrainSection entries={selectedProject.entries} kind="owner" /><BrainSection entries={selectedProject.entries} kind="open_question" /><BrainSection entries={selectedProject.entries} kind="status" /></> : <div className="lore-no-project"><h1>Your brain is ready.</h1><p>Capture a Slack thread to create the first project memory.</p></div>}</section>}
       <aside className="lore-activity"><div className="lore-panel-title"><span>Live activity</span><small>Latest captures</small></div>{activity.length ? activity.map((entry, index) => <ActivityItem entry={entry} key={`${entry.summary}-${index}`} />) : <p className="lore-empty-copy">Activity appears after the first capture.</p>}</aside>
-      <section className="lore-ask" aria-labelledby="ask-the-brain"><header><div><p>Ask the brain</p><h2 id="ask-the-brain">Query across your knowledge graph</h2></div><span>Karpathy MCP</span></header><CopilotChat className="lore-chat" labels={{ welcomeMessageText: "Ask Lore about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>
+      {!chatFirst ? <ChatSurface /> : null}
     </div>
   </main>;
 }

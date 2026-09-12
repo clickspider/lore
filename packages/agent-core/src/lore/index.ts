@@ -3,4 +3,5 @@
  * that feed it). Imported as `agent-core/lore`. Node-only — it touches `fs`.
  */
 export * from "./brain";
+export * from "./brief";
 export * from "./ingest";
