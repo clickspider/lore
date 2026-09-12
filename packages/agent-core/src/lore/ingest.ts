@@ -16,6 +16,8 @@
  * mocking it out in a test — never touches the store.
  */
 import { z } from "zod";
+import { streamText } from "ai";
+import { resolveModel } from "../model";
 import {
   captureEntry,
   type CaptureResult,
@@ -136,6 +138,29 @@ function parseEntries(text: string): ExtractedEntry[] {
  * (which passes its own fake instead).
  */
 export const openAiExtractor: Extractor = async (content, ctx) => {
+  const userContent = [
+    ctx.project
+      ? `This conversation concerns the project "${ctx.project}".\n\n`
+      : "",
+    "--- BEGIN SOURCE ---\n",
+    content,
+    "\n--- END SOURCE ---",
+  ].join("");
+
+  if ((process.env.MODEL_PROVIDER || "").trim().toLowerCase() === "codex") {
+    const result = streamText({
+      model: resolveModel(),
+      system: EXTRACTION_INSTRUCTIONS,
+      prompt: userContent,
+      temperature: 0,
+    });
+    const text = await result.text;
+    if (!text.trim()) {
+      throw new Error("The Codex model returned no content to extract entries from.");
+    }
+    return parseEntries(text);
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.MODEL;
   if (!apiKey || apiKey === "stub-replace-me") {
@@ -152,15 +177,6 @@ export const openAiExtractor: Extractor = async (content, ctx) => {
   const baseUrl = (
     process.env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1"
   ).replace(/\/+$/, "");
-
-  const userContent = [
-    ctx.project
-      ? `This conversation concerns the project "${ctx.project}".\n\n`
-      : "",
-    "--- BEGIN SOURCE ---\n",
-    content,
-    "\n--- END SOURCE ---",
-  ].join("");
 
   const body: Record<string, unknown> = {
     model,
