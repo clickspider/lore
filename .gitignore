@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.local
+.vscode/mcp.json
 *.log
 dist/
 .DS_Store
