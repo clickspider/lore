@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/lore-logo.jpeg" alt="Lore logo" width="112" />
+
 # Lore — the project memory that writes itself
 
 **A local-first AI chief-of-staff. It lives in your team chat, turns the
