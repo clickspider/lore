@@ -20,6 +20,8 @@ brain, and lets any AI tool answer "what did we decide about X?" with receipts.*
 > the Obsidian MCP** — it builds none of that itself. New here? Start with
 > [SETUP.md](SETUP.md).
 >
+> Created by [Daniel Frey](https://github.com/clickspider) during the hackathon.
+>
 > The original starter-kit documentation follows.
 
 ---

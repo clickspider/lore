@@ -6,6 +6,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Lore — your team's living memory",
   description: "Cited project memory from the conversations your team already has.",
+  authors: [{ name: "Daniel Frey", url: "https://github.com/clickspider" }],
+  creator: "Daniel Frey",
 };
 
 export default function RootLayout({

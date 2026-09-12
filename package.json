@@ -3,7 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Starter kit for the Agents, Everywhere: Bots, Channels & More global hackathon.",
+  "description": "Lore — a local-first AI chief of staff for software teams.",
+  "author": "Daniel Frey <danielfrey101@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clickspider/lore.git"
+  },
+  "homepage": "https://loreos.dev",
+  "bugs": {
+    "url": "https://github.com/clickspider/lore/issues"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=22"
