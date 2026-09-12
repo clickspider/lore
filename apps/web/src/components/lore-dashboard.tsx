@@ -43,7 +43,7 @@ function SourceItem({ provider, title, detail }: { provider: keyof typeof provid
 }
 
 function ChatSurface({ primary = false }: { primary?: boolean }) {
-  return <section className={primary ? "lore-chat-main" : "lore-ask"} aria-labelledby="ask-the-brain"><header><div><p>Ask the brain</p><h2 id="ask-the-brain">{primary ? "Your team, fully briefed." : "Query across your knowledge graph"}</h2></div><span>Karpathy MCP</span></header><p className="lore-chat-intro">Ask Lore about decisions, owners, blockers, and the connections between projects. Every answer should lead back to source notes.</p><CopilotChat className="lore-chat" messageView={{ assistantMessage: "lore-assistant-message", userMessage: "lore-user-message" }} input={{ disclaimer: () => null }} labels={{ welcomeMessageText: "Ask Lore about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>;
+  return <section className={primary ? "lore-chat-main" : "lore-ask"} aria-labelledby="ask-the-brain">{!primary ? <><header><div><p>Ask the brain</p><h2 id="ask-the-brain">Query across your knowledge graph</h2></div><span>Karpathy MCP</span></header><p className="lore-chat-intro">Ask Lore about decisions, owners, blockers, and the connections between projects. Every answer should lead back to source notes.</p></> : null}<CopilotChat className="lore-chat" messageView={{ assistantMessage: "lore-assistant-message", userMessage: "lore-user-message" }} input={{ disclaimer: () => null }} labels={{ welcomeMessageText: "Ask anything about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>;
 }
 
 export function LoreDashboard({ view = "chat" }: { view?: "chat" | "brain" }) {
