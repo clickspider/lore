@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { FaMicrosoft, FaSlack } from "react-icons/fa";
+import { SiObsidian } from "react-icons/si";
 import type { BrainData, DashEntry, DashProject, LoreEntryKind } from "@/lib/lore-dash";
 import { BRAIN_API_PATH } from "@/lib/lore-dash";
 
@@ -30,13 +32,14 @@ function ActivityItem({ entry }: { entry: DashEntry }) {
 }
 
 const providerIcon = {
-  slack: "https://cdn.simpleicons.org/slack/d8a24e",
-  teams: "https://cdn.simpleicons.org/microsoftteams/d8a24e",
-  obsidian: "https://cdn.simpleicons.org/obsidian/d8a24e",
+  slack: FaSlack,
+  teams: FaMicrosoft,
+  obsidian: SiObsidian,
 };
 
 function SourceItem({ provider, title, detail }: { provider: keyof typeof providerIcon; title: string; detail: string }) {
-  return <div className="lore-source-item"><img src={providerIcon[provider]} alt="" /><span><strong>{title}</strong><small>{detail}</small></span></div>;
+  const Icon = providerIcon[provider];
+  return <div className="lore-source-item"><Icon aria-hidden="true" /><span><strong>{title}</strong><small>{detail}</small></span></div>;
 }
 
 function ChatSurface({ primary = false }: { primary?: boolean }) {
