@@ -162,3 +162,8 @@ export function resolveModel() {
 
   return `${provider}:${modelId}`;
 }
+
+/** True when the model uses Codex OAuth's stateless Responses endpoint. */
+export function isCodexModel(): boolean {
+  return (process.env.MODEL_PROVIDER || "").trim().toLowerCase() === "codex";
+}

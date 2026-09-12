@@ -1,5 +1,5 @@
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { resolveModel } from "./model";
+import { isCodexModel, resolveModel } from "./model";
 import { SYSTEM_PROMPT } from "./prompt";
 import { workplaceMcpServers } from "./capabilities/workplace";
 import { obsidianMcpServers } from "./capabilities/obsidian";
@@ -45,6 +45,11 @@ export function makeAgent(threadId: string, options: AgentFactoryOptions = {}) {
       ...(options.workplace === false ? [] : workplaceMcpServers()),
       ...obsidianMcpServers(),
     ],
+
+    // The ChatGPT/Codex endpoint explicitly requires store:false. Supplying it
+    // here (rather than only mutating the outgoing HTTP body) lets the AI SDK
+    // serialize full stateless history instead of invalid item references.
+    providerOptions: isCodexModel() ? { openai: { store: false } } : undefined,
   });
   agent.threadId = threadId;
   return agent;
