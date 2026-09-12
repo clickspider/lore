@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { FaMicrosoft, FaSlack } from "react-icons/fa";
 import { SiObsidian } from "react-icons/si";
 import type { BrainData, DashEntry, DashProject, LoreEntryKind } from "@/lib/lore-dash";
@@ -43,7 +43,7 @@ function SourceItem({ provider, title, detail }: { provider: keyof typeof provid
 }
 
 function ChatSurface({ primary = false }: { primary?: boolean }) {
-  return <section className={primary ? "lore-chat-main" : "lore-ask"} aria-labelledby="ask-the-brain"><header><div><p>Ask the brain</p><h2 id="ask-the-brain">{primary ? "Your team, fully briefed." : "Query across your knowledge graph"}</h2></div><span>Karpathy MCP</span></header><p className="lore-chat-intro">Ask Lore about decisions, owners, blockers, and the connections between projects. Every answer should lead back to source notes.</p><CopilotChat className="lore-chat" labels={{ welcomeMessageText: "Ask Lore about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>;
+  return <section className={primary ? "lore-chat-main" : "lore-ask"} aria-labelledby="ask-the-brain"><header><div><p>Ask the brain</p><h2 id="ask-the-brain">{primary ? "Your team, fully briefed." : "Query across your knowledge graph"}</h2></div><span>Karpathy MCP</span></header><p className="lore-chat-intro">Ask Lore about decisions, owners, blockers, and the connections between projects. Every answer should lead back to source notes.</p><CopilotChat className="lore-chat" messageView={{ assistantMessage: "lore-assistant-message", userMessage: "lore-user-message" }} input={{ disclaimer: () => null }} labels={{ welcomeMessageText: "Ask Lore about your project memory.", chatInputPlaceholder: "What did we decide about the claims flow?" }} /></section>;
 }
 
 export function LoreDashboard({ view = "chat" }: { view?: "chat" | "brain" }) {
@@ -77,8 +77,6 @@ export function LoreDashboard({ view = "chat" }: { view?: "chat" | "brain" }) {
   const selectedProject = useMemo<DashProject | undefined>(() => brain?.projects.find((project) => project.slug === selectedSlug) ?? brain?.projects[0], [brain?.projects, selectedSlug]);
   const activity = useMemo(() => (brain?.projects.flatMap((project) => project.entries) ?? []).slice(0, 5), [brain]);
   const chatFirst = view === "chat";
-
-  useConfigureSuggestions({ suggestions: [{ title: "Open questions", message: "What remains unresolved in the knowledge graph? Cite the source notes." }, { title: "Cross-project decisions", message: "What decisions connect the current projects? Cite the source notes." }], available: "before-first-message" }, []);
 
   return <main className="lore-console">
     <header className="lore-console-header"><a className="lore-wordmark" href="/" aria-label="Lore dashboard"><img src="/lore-logo.jpeg" alt="" /> lore</a><nav><a className={chatFirst ? "is-current" : ""} href="/">Chat</a><a className={!chatFirst ? "is-current" : ""} href="/brain">Brain</a><a href="/onboarding">Brief Lore</a></nav><div className="lore-console-status"><i /> {loading ? "Syncing" : "Vault connected"}</div></header>
