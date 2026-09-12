@@ -2,6 +2,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { resolveModel } from "./model";
 import { SYSTEM_PROMPT } from "./prompt";
 import { workplaceMcpServers } from "./capabilities/workplace";
+import { obsidianMcpServers } from "./capabilities/obsidian";
 
 /**
  * The agent factory.
@@ -35,11 +36,15 @@ export function makeAgent(threadId: string, options: AgentFactoryOptions = {}) {
     // agent with tools needs room to loop.
     maxSteps: 10,
 
-    // The workplace, when one is configured. Empty array when it is not, so the
-    // agent is never handed tools that would 401. Add your own MCP servers here
-    // the same way — note HTTP transport takes `options` (with a wrapped
-    // `options.fetch` for auth), not `headers`.
-    mcpServers: options.workplace === false ? [] : [...workplaceMcpServers()],
+    // MCP servers, each added only when configured, so the agent is never handed
+    // tools that would fail. The workplace (Ambiguous) is opt-out per surface; the
+    // Obsidian wiki (Lore's retrieval) is always included when connected. HTTP
+    // transport takes `options` (with a wrapped `options.fetch` for auth), not
+    // `headers`.
+    mcpServers: [
+      ...(options.workplace === false ? [] : workplaceMcpServers()),
+      ...obsidianMcpServers(),
+    ],
   });
   agent.threadId = threadId;
   return agent;

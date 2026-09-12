@@ -14,6 +14,7 @@
     "apps/web"
   ],
   "scripts": {
+    "setup": "npm ci && node -e \"const fs=require('fs');fs.existsSync('.env')||fs.copyFileSync('.env.example','.env');console.log('\\n  ✓ Lore installed. Next: fill .env (see SETUP.md — the free model route needs no paid key), then `npm run dev:slack`.\\n');\"",
     "dev": "npm run dev:web",
     "dev:slack": "npm run dev --workspace channel",
     "channel:status": "npx copilotkit@latest channels status --json",

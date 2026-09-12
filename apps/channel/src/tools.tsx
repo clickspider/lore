@@ -1,127 +1,123 @@
 /**
- * The on-call agent's tools.
+ * Lore's tools for the chat surface.
  *
- * A channel tool handler receives the LIVE thread, which is what makes the
- * proposal below possible: it posts a card and returns. A later click reports
- * the decision; it does not resume the agent or execute an action.
+ * The loop is: read the conversation (read_thread) → fold what matters into the
+ * per-project markdown brain (capture_to_brain) → answer later strictly from the
+ * brain (query_brain). Capture performs a real file write and posts a receipt
+ * card; query never writes.
  *
- * The return value is what the *agent* reads back, not what the user sees.
+ * A tool's return value is what the *agent* reads back, not what the user sees.
  * Return raw data (it is JSON-stringified for you) or a short natural-language
  * confirmation — never `{ ok: true }`, and never hand-stringify.
  */
-import {
-  defineChannelTool,
-  Message,
-  Header,
-  Section,
-  Markdown,
-  Context,
-  Actions,
-  Button,
-} from "@copilotkit/channels";
-import type { InteractionContext } from "@copilotkit/channels";
-export { searchTheWeb } from "./search";
+import { defineChannelTool } from "@copilotkit/channels";
+import { captureEntry, type LoreKind } from "agent-core/lore";
+import path from "node:path";
 import { z } from "zod";
+import { captureCard } from "./components";
+import { recordChange } from "./ledger";
+
+const KIND = z.enum([
+  "decision",
+  "context",
+  "open_question",
+  "owner",
+  "status",
+]);
 
 /**
- * Read the incident context already present in the conversation.
+ * Read the conversation already present — the raw material Lore captures from.
  */
 export const readThread = defineChannelTool({
   name: "read_thread",
   description:
-    "Read the recent messages in this conversation. Call this FIRST on any incident question — the thread almost certainly already says what broke, when, and what has been tried. Asking someone to re-explain an outage is the worst thing you can do here.",
+    "Read the recent messages in this conversation. Call this FIRST on any request — the thread is what you capture from and answer about. Do not ask anyone to re-explain what the thread already says.",
   parameters: z.object({}),
   async handler(_args, { thread }) {
     const messages = await thread.getMessages();
     if (messages.length === 0) {
-      return "This surface does not expose conversation history, or the thread is empty. Say that you cannot see earlier messages and ask for the shortest possible summary.";
+      return "This surface does not expose conversation history, or the thread is empty. Say you cannot see earlier messages and ask for the shortest possible summary; do not capture anything you cannot cite.";
     }
     return messages;
   },
 });
 
 /**
- * Managed delivery cannot block on awaitChoice. Post a proposal and let a later
- * interaction report the decision. This demo has no production executor.
- * Inline handlers require one listener instance that stays running until click.
+ * Fold one unit of project knowledge into the brain. This WRITES a real markdown
+ * file on this machine and posts a receipt card. Call once per distinct item.
  */
-export const proposeAction = defineChannelTool({
-  name: "propose_action",
+export const captureToBrain = defineChannelTool({
+  name: "capture_to_brain",
   description:
-    "Post an action proposal for human review. This returns pending immediately. Stop after posting: do not execute the action or call write tools. A later click reports a decision only; it does not execute anything or resume you.",
+    "Save one decision, owner assignment, or open question into a project's living markdown brain, with a citation back to the source message. Call once per distinct item. This writes a real file on this machine and posts a receipt. Never invent an owner or a source the thread does not support.",
   parameters: z.object({
-    action: z.string().describe("The proposed action, in one plain sentence."),
-    blastRadius: z
+    project: z
       .string()
+      .min(1)
+      .describe("The project this belongs to, e.g. 'Auth Service'."),
+    kind: KIND.describe(
+      "What kind of knowledge this is: decision, context, open_question, owner, or status.",
+    ),
+    summary: z
+      .string()
+      .min(1)
+      .describe("The knowledge itself, in one plain sentence."),
+    owner: z
+      .string()
+      .optional()
+      .describe("Who owns the resulting work, only if the thread names one."),
+    openQuestion: z
+      .string()
+      .optional()
+      .describe("A question the discussion left open, if any."),
+    sourceRef: z
+      .string()
+      .optional()
       .describe(
-        "What this affects if it goes wrong. Be specific and pessimistic.",
+        "A pointer to the exact source message — a timestamp or id from read_thread.",
       ),
-    reversible: z
-      .boolean()
-      .describe("Whether this can be undone in under a minute."),
+    sourceAuthor: z
+      .string()
+      .optional()
+      .describe("Who said it, from the thread."),
   }),
-  async handler({ action, blastRadius, reversible }, { thread }) {
-    // The SDK retains inline action handlers after a message replacement. Queue
-    // clicks and settle only after a successful update, so stale/opposite clicks
-    // cannot overwrite a decision and a failed update remains retryable.
-    let settled = false;
-    let previousReport = Promise.resolve();
-    const reportDecision = (
-      approved: boolean,
-      ctx: InteractionContext<boolean>,
-    ) => {
-      const report = async () => {
-        if (settled) return;
-        const decision = approved
-          ? "Approved proposal. No action was executed."
-          : "Held by the responder. No action was executed. Do not take the action or offer a workaround.";
-        // Use the interaction's thread, whose delivery is live now.
-        await ctx.thread.update(
-          ctx.message.ref,
-          `${decision}\n\nProposal: ${action}`,
-        );
-        settled = true;
-      };
-      previousReport = previousReport.then(report, report);
-      return previousReport;
-    };
-    await thread.post(
-      <Message accent="#C4145F">
-        <Header>Review action proposal</Header>
-        <Section>
-          <Markdown>{`**${action}**\n\nBlast radius: ${blastRadius}`}</Markdown>
-        </Section>
-        <Context>
-          {reversible
-            ? "Reversible in under a minute"
-            : "NOT easily reversible"}
-        </Context>
-        <Context>
-          Demo proposal only. Clicking records a decision; it executes nothing.
-        </Context>
-        <Actions>
-          <Button
-            value={true}
-            style="primary"
-            onClick={async (ctx) => {
-              await reportDecision(true, ctx);
-            }}
-          >
-            Approve
-          </Button>
-          <Button
-            value={false}
-            style="danger"
-            onClick={async (ctx) => {
-              await reportDecision(false, ctx);
-            }}
-          >
-            Hold
-          </Button>
-        </Actions>
-      </Message>,
+  async handler(
+    { project, kind, summary, owner, openQuestion, sourceRef, sourceAuthor },
+    { thread, platform },
+  ) {
+    let result;
+    try {
+      result = await captureEntry({
+        project,
+        kind: kind as LoreKind,
+        summary,
+        owner,
+        openQuestion,
+        source: { platform, ref: sourceRef, author: sourceAuthor },
+      });
+    } catch (error) {
+      // The agent loop turns tool errors into model-only data; surface it so the
+      // model reports the failure instead of claiming a save that never happened.
+      return `Failed to write to the brain: ${
+        error instanceof Error ? error.message : String(error)
+      }. Do not claim anything was saved.`;
+    }
+    await thread.post(captureCard(result));
+    // Best-effort ledger: each capture is a git commit in the vault, so the
+    // change is auditable and reversible (git revert). Never fails the capture.
+    const ledger = await recordChange(
+      path.dirname(result.path),
+      `lore: capture ${kind} — ${summary}`,
+      result.path,
     );
-
-    return "Proposal posted; decision pending. Stop here. Do not take the action, call write tools, or offer a workaround. A later click only reports the decision; no action is executed and the agent does not automatically resume.";
+    const ledgerNote = ledger.committed ? ` Ledgered as ${ledger.commit}.` : "";
+    return `Captured a ${kind} to ${result.project} (${result.slug}.md)${
+      result.createdFile ? ", creating the project brain" : ""
+    }.${ledgerNote} The receipt card is posted; do not restate it in prose.`;
   },
 });
+
+// Retrieval is intentionally NOT a tool here. Lore captures; the Karpathy LLM
+// Wiki (reached over the Obsidian MCP) owns retrieval, the entity graph, and
+// cross-project Q&A. Keeping a local reader here would drift into rebuilding
+// that — the line we do not cross.

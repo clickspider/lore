@@ -11,7 +11,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { renderToIR } from "@copilotkit/channels";
-import { IncidentCard, Timeline } from "./components";
+import { LoreCard, welcomeMessage } from "./components";
 
 const ctx = { platform: "slack" as const, signal: new AbortController().signal };
 
@@ -20,81 +20,55 @@ async function render(node: unknown): Promise<string> {
   return JSON.stringify(renderToIR((await node) as never));
 }
 
-const baseIncident = {
-  severity: "sev2" as const,
-  headline: "Checkout latency above 4s",
-  impact: "~12% of checkouts, EU region",
-  started: "02:14 UTC",
-  known: [] as string[],
-  trying: [] as string[],
+const baseAnswer = {
+  project: "Auth Service",
+  title: "Sessions replace JWT",
+  body: "The team switched auth to server-side sessions.",
+  sources: [] as { who?: string; ref: string }[],
 };
 
-describe("incident_card", () => {
-  it("colours the rail by severity, so the channel can triage by glance", async () => {
-    const sev1 = await render(IncidentCard.render({ ...baseIncident, severity: "sev1" }, ctx));
-    const resolved = await render(IncidentCard.render({ ...baseIncident, severity: "resolved" }, ctx));
-
-    assert.ok(sev1.includes("#C4145F"), "sev1 should use the attention accent");
-    assert.ok(resolved.includes("#2E7D5B"), "resolved should use the good accent");
-    assert.notEqual(sev1, resolved);
+describe("lore_card", () => {
+  it("carries the project, title, and body — the three things a reader needs to trust the answer", async () => {
+    const out = await render(LoreCard.render(baseAnswer, ctx));
+    assert.ok(out.includes("Auth Service"), "the project must ground the card");
+    assert.ok(out.includes("Sessions replace JWT"), "the title must headline it");
+    assert.ok(
+      out.includes("The team switched auth to server-side sessions."),
+      "the body is the answer itself",
+    );
   });
 
-  it("labels the severity in words, not just colour", async () => {
-    // Colour alone fails anyone colour-blind and every screen reader.
-    const out = await render(IncidentCard.render({ ...baseIncident, severity: "sev1" }, ctx));
-    assert.ok(out.includes("SEV1"));
-    assert.ok(out.includes("customer-facing"));
-  });
-
-  it("omits the owner field entirely when the thread has not said who is driving", async () => {
-    const without = await render(IncidentCard.render(baseIncident, ctx));
-    const with_ = await render(IncidentCard.render({ ...baseIncident, owner: "priya" }, ctx));
-
-    assert.ok(!without.includes("Driving"), "no owner should mean no Driving field");
-    assert.ok(with_.includes("Driving"));
-    assert.ok(with_.includes("priya"));
-  });
-
-  it("omits the known/trying sections when empty rather than drawing empty headings", async () => {
-    const empty = await render(IncidentCard.render(baseIncident, ctx));
-    assert.ok(!empty.includes("What we know"));
-    assert.ok(!empty.includes("Being tried"));
-
-    const filled = await render(
-      IncidentCard.render(
-        { ...baseIncident, known: ["Rollback did not help"], trying: ["Draining the queue"] },
+  it("renders the sources section, with attribution, when the brain has citations to show", async () => {
+    const out = await render(
+      LoreCard.render(
+        {
+          ...baseAnswer,
+          sources: [
+            { who: "priya", ref: "1699.0001" },
+            { ref: "1699.0002" },
+          ],
+        },
         ctx,
       ),
     );
-    assert.ok(filled.includes("What we know"));
-    assert.ok(filled.includes("Rollback did not help"));
-    assert.ok(filled.includes("Being tried"));
+    assert.ok(out.includes("Sources"), "a citations section must appear");
+    assert.ok(out.includes("priya"), "a named speaker is attributed");
+    assert.ok(out.includes("1699.0001"));
+    // A source without a named speaker still lists its pointer.
+    assert.ok(out.includes("1699.0002"));
   });
 
-  it("always carries impact and start time — the two things a late joiner needs", async () => {
-    const out = await render(IncidentCard.render(baseIncident, ctx));
-    assert.ok(out.includes("~12% of checkouts, EU region"));
-    assert.ok(out.includes("02:14 UTC"));
+  it("omits the sources section entirely when there is nothing to cite", async () => {
+    // An empty *Sources* heading would imply citations the brain does not have.
+    const out = await render(LoreCard.render(baseAnswer, ctx));
+    assert.ok(!out.includes("Sources"), "no citations should mean no heading");
   });
 });
 
-describe("timeline", () => {
-  it("renders every event and counts them in the footer", async () => {
-    const events = [
-      { at: "02:14", what: "Alerts fired", who: "pagerduty" },
-      { at: "02:19", what: "Rolled back web", who: "priya" },
-      { at: "02:31", what: "Latency still high" },
-    ];
-    const out = await render(Timeline.render({ title: "Timeline", events }, ctx));
-
-    for (const event of events) assert.ok(out.includes(event.what), `missing "${event.what}"`);
-    assert.ok(out.includes("3 event(s)"));
-  });
-
-  it("fills the who column with a dash rather than leaving a hole", async () => {
-    const out = await render(
-      Timeline.render({ title: "T", events: [{ at: "02:31", what: "no owner" }] }, ctx),
-    );
-    assert.ok(out.includes("—"));
+describe("welcomeMessage", () => {
+  it("says what Lore does and names the platform it was invited into", async () => {
+    const out = await render(welcomeMessage("Slack"));
+    assert.ok(out.includes("Lore"), "an invited bot that says nothing looks broken");
+    assert.ok(out.includes("Slack"), "the greeting is tailored to the surface");
   });
 });

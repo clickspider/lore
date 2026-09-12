@@ -12,4 +12,9 @@ export {
   isWorkplaceConfigured,
   WORKPLACE_CONTEXT,
 } from "./capabilities/workplace";
+export {
+  obsidianMcpServers,
+  isObsidianConfigured,
+  OBSIDIAN_CONTEXT,
+} from "./capabilities/obsidian";
 export * from "./shared";

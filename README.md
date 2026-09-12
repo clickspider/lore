@@ -1,10 +1,32 @@
 <div align="center">
 
-# Agents, Everywhere Hackathon Starter Kit
+# Lore — the project memory that writes itself
+
+**A local-first AI chief-of-staff. It lives in your team chat, turns the
+conversations you're already having into a living, cited, per-project markdown
+brain, and lets any AI tool answer "what did we decide about X?" with receipts.**
+
+[Setup](SETUP.md) · [How to run](apps/channel/README.md) · [Submission](SUBMISSION.md)
+
+</div>
+
+> **This repository is Lore**, built during the Agents, Everywhere hackathon on top
+> of the CopilotKit starter kit (the first commit is that inherited boilerplate;
+> everything after is our work). Lore captures from Slack/Teams into a portable
+> markdown vault and **delegates retrieval, the entity graph, and cross-project
+> Q&A to the [Karpathy LLM Wiki](https://github.com/GD4AI/obsidian-llm-wiki) over
+> the Obsidian MCP** — it builds none of that itself. New here? Start with
+> [SETUP.md](SETUP.md).
+>
+> The original starter-kit documentation follows.
+
+---
+
+<div align="center">
+
+## Agents, Everywhere Hackathon Starter Kit (inherited)
 
 ![Agents, Everywhere hackathon — OpenAI, CopilotKit, OpenRouter, Exa, Auth0, and Ambiguous AI](assets/banner.png)
-
-**Build an agent that belongs where people already work, talk, and live.**
 
 [Overview](#overview) · [Get started](#get-started) · [Templates](#templates) · [Coding agent](#coding-agent) · [Resources](#resources)
 
@@ -20,14 +42,23 @@ Your project and its core functionality must be created during the event. Existi
 
 ## Get started
 
-Use Node.js 22+, then clone and install the kit:
+**Lore quickstart (one install).** Needs Node.js 22+:
 
 ```bash
-git clone https://github.com/CopilotKit/agents-everywhere-starter-kit.git
-cd agents-everywhere-starter-kit
-npm ci
-cp .env.example .env
+git clone https://github.com/clickspider/lore.git
+cd lore
+npm run setup        # installs deps + creates your .env in one step
+# fill .env — see SETUP.md. The free model route needs NO paid key.
+npm run dev:slack    # run Lore in Slack
+# or, zero Slack needed:  npm run lore:ingest "Auth Service" assets/samples/teams-standup-2026-09-12.md
 ```
+
+Then follow [SETUP.md](SETUP.md) (3 keys, mostly optional) and, for Slack,
+[SLACK-SETUP.md](SLACK-SETUP.md). To query the brain from Copilot/Claude, see
+[CONNECT-YOUR-AI.md](CONNECT-YOUR-AI.md). The original starter-kit setup notes
+follow below.
+
+---
 
 Choose one template and configure only the credentials it needs. Slack and web use the root install; React Native has its own install under `apps/mobile` because Expo pins its React Native stack separately.
 

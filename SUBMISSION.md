@@ -1,74 +1,114 @@
-# Submission checklist
+# Lore — submission
 
-Choose your city on the [global event page](https://aitinkerers.org/hackathons/global/agents-everywhere). Use that city's participant portal for the submission deadline and published judging criteria, and its handbook for eligibility and required deliverables. See [hackathon-rules.md](hackathon-rules.md) for the agent-readable summary.
+> **Status: core PROVEN LIVE (2026-09-12).** A real @-mention in Slack captured a
+> cited open-question into `lore/billing.md` on disk (receipt card shown the file
+> path + the Slack message citation), and the Karpathy LLM Wiki answered "what did
+> we decide about the Auth Service?" in Obsidian with `[[wikilink]]` citations back
+> to Lore's notes. Both ran on the free (aptget) model — no paid key. The 2-minute
+> video records exactly this flow.
 
-## Build eligibility
+## Project
 
-- [ ] Our submitted project is a net-new build created during the official hackathon period
-- [ ] Its core functionality was built during the event; we are not resubmitting or extending a pre-existing project and entering it as new
-- [ ] We identify inherited templates, libraries, prompts, components, and starter code separately from our event work
+**Title:** Lore — the project memory that writes itself.
 
-**What we inherited**
-<!-- Include this starter kit and any reused examples. -->
+**One line:** Lore lives in your team chat, turns the conversations you're already
+having into a living, **cited**, per-project markdown brain, and lets any AI tool
+answer "what did we decide about X?" with receipts.
 
-**What we built during the hackathon**
-<!-- Describe the new core interaction and point to its implementation. Running the supplied incident demo alone does not establish a new project. -->
+**Who it is for:** an engineer / tech lead juggling several projects on Microsoft
+Teams — especially in regulated shops where shipping transcripts to a cloud AI is a
+non-starter.
 
-## Title and description
+**Why the surrounding context matters:** the agent lives *inside the thread*. It
+reads what was actually said, decides what is durable (a decision, an owner, an
+open question), routes it to the right project, and cites the exact source message.
+Remove the conversation context and there is nothing to capture — a standalone
+chatbox would just ask you to re-type everything you already said.
 
-**What you built**
-<!-- Explain the complete interaction your demo shows. -->
+## Build eligibility — inherited vs. built during the event
 
-**Who it is for**
-<!-- Name a person in a concrete situation. -->
+**What we inherited (starter code, unchanged in spirit):**
+- The CopilotKit **Agents, Everywhere** starter kit (Slack/Channels app, shared
+  `agent-core` model adapter, managed-gateway test harness, build tooling). Our
+  repo's first commit is this starter, verbatim, labelled as inherited boilerplate.
+- CopilotKit **Channels** + **Intelligence**, the OpenAI model adapter, and the
+  `@ag-ui/*` stack — used as building blocks.
 
-**Why the context matters**
-<!-- What did the agent know or do because it lived in this surface? -->
+**What we built during the hackathon (all commits after the baseline):**
+- **The brain** — a local-first, git-versioned, per-project markdown vault with
+  cited entries and `[[wikilinks]]` (`packages/agent-core/src/lore/`).
+- **Capture** — Channels tools `read_thread` + `capture_to_brain` that read the
+  live thread and write cited knowledge to the brain; a deterministic receipt card
+  and an agent-rendered `lore_card` (`apps/channel/src/tools.tsx`, `components.tsx`).
+- **Source-agnostic ingestion** — `ingestContent()` + a Teams-transcript CLI
+  (`npm run lore:ingest`) + a loopback `POST /ingest` endpoint, so any source can
+  feed the brain (`packages/agent-core/src/lore/ingest.ts`, `apps/channel/src/ingest*.ts`).
+- **Lore's prompt/role and the Channels wiring** for this domain.
+- Reworked tests for the new domain.
 
-**Sponsor technologies used**
-<!-- Name the tools you actually used and the visible contribution of each. -->
+**The honest proof:** `git diff origin/main HEAD` is exactly our event work — the
+baseline is the untouched starter.
+
+## What we deliberately did NOT build (reuse, not reinvent)
+
+- **Retrieval, the entity/concept graph, cross-project Q&A, curation** → delegated
+  to the **Karpathy LLM Wiki** (Obsidian plugin / `karpathywiki-cli`), reached over
+  the **Obsidian MCP**. Lore writes the cited source notes; Karpathy builds the
+  graph and answers. We hold a hard line: no embeddings, no PageRank, no graph
+  retrieval in Lore.
+- Generic vault read/write for external agents → the same Obsidian MCP, so any
+  harness (GitHub Copilot, Claude) can query the brain.
+
+## Sponsor technologies used
+
+| Tool | Visible contribution |
+|---|---|
+| **OpenAI** | The model behind capture extraction and the agent. |
+| **CopilotKit Channels + Intelligence** | The agent lives in the Slack thread; native `lore_card`; managed connection, no tunnel. |
+| _(ecosystem, not sponsors)_ | Obsidian + Karpathy LLM Wiki + Obsidian MCP provide retrieval/graph on top of the portable markdown brain. |
+
+Exa, Ambiguous AI, and Auth0 from the kit are **not used** — Lore is local-first
+and reads internal context, not the public web or a cloud record. Their starter
+code remains, unregistered.
+
+## Surfaces — honest scope
+
+- **Slack** — the demo surface (Channels). Live.
+- **MCP → any harness** — query the brain from GitHub Copilot / Claude via the
+  Obsidian MCP. Live once Obsidian is configured.
+- **Web** — a CopilotKit React control-center (chat + change history) is a planned
+  stretch; marked clearly if not in the final video.
+- **Teams** — the real target. Channels is platform-agnostic, so Teams is a
+  documented next adapter. **We do not claim a live Teams integration.**
 
 ## Evidence for the judging criteria
 
-Judges score each of the four official criteria from 1–5. This checklist helps you gather evidence; it does not guarantee a score. A working starter is a foundation for your own project.
-
-| Official criterion | Show in your project and demo |
+| Criterion | Evidence |
 |---|---|
-| Core Requirements & Functionality | Run one complete workflow in the intended environment, from user request through tools to a verified result. Repeat it with live integrations; offline tests alone do not prove the deployed flow. |
-| Innovation & Theme Alignment | Show the surrounding context before the prompt and explain the original interaction it enables. Compare with the context removed: what value would a standalone chatbox lose? |
-| Technical Execution & Integration | Show how tools, data, and the environment connect. Demonstrate a relevant failure or cancellation path and explain recovery, state persistence, and integration limits. |
-| Usefulness & Agentic Experience | Identify the user and problem, show a meaningful action in the surface, and demonstrate clear feedback and appropriate user control. Explain what work the agent saves. |
+| Core Requirements & Functionality | Capture a decision from a live Slack thread → a real cited file appears in the vault (git-committed) → query it back with a receipt. |
+| Innovation & Theme Alignment | The thread *is* the input; the brain is portable markdown that an existing best-in-class tool (Karpathy) builds a graph on. Remove the thread and there is nothing to capture. |
+| Technical Execution & Integration | Channels + OpenAI + the local vault + the Obsidian MCP work together; capture failures return an error and claim nothing was saved; retrieval degrades gracefully when Obsidian is not connected. |
+| Usefulness & Agentic Experience | Zero note-taking: the by-product of a conversation becomes cited, queryable memory, auditable via git, with the human able to edit or revert any change. |
 
-- [ ] We can point to visible evidence for every criterion
-- [ ] We distinguish live services, sample data, session-only state, and standalone recipes
-- [ ] Sponsor technologies contribute to the workflow; their count is not a judging criterion
+- [ ] Live Slack capture recorded (real file written + git-committed)
+- [ ] Query answered via the Obsidian MCP with citations
+- [ ] A failure path shown (capture error, or query with Obsidian disconnected)
+- [ ] Sample data / session state / live services labelled in the video
 
-## Public repository
+## Repository & quickstart
 
-- [ ] A new participant can run the quickstart from a clean clone
-- [ ] The README lists the credentials and separate processes required
-- [ ] `npm run verify` passes; optional recipe checks pass if used
-- [ ] `.env`, tokens, generated traces with sensitive data, and account secrets are excluded
-- [ ] Sample data, session-only state, and unimplemented integrations are clearly labeled
+- Public repo: `github.com/clickspider/lore` (private during the build).
+- Clean-clone quickstart, required credentials, and the separate processes
+  (Channels listener, ingest, Obsidian) are documented in
+  [apps/channel/README.md](apps/channel/README.md). `npm run verify` runs
+  typechecks + offline tests without credentials.
+- `.env`, tokens, and the vault contents stay out of the repo, logs, and video.
 
-## Two-minute demo video
+## Deliverables checklist
 
-- [ ] Show the surface and existing context before the prompt
-- [ ] Demonstrate one complete interaction
-- [ ] Show a visible result: an actual record, local state change, or research source links
-- [ ] If showing an approval, distinguish the decision from execution and demonstrate the resulting behavior
-- [ ] State which sponsor technologies made the interaction possible
-- [ ] Keep the video within the event's limit and check audio
+- [ ] Title + written description (above)
+- [ ] Public repo + run instructions
+- [ ] Two-minute demo video (one complete Slack interaction, visible result)
+- [ ] Social post tagging the partners per organizer instructions
 
-See [demo prompts](dev-docs/demo-prompts.md) for a reproducible incident workflow.
-
-## Social post and final submission
-
-- [ ] Follow the organizer's posting and sponsor-tagging instructions
-- [ ] Link the public repository and video
-- [ ] Credit the sponsors you used and applicable local partners
-- [ ] Check the live integration once more before recording or submitting
-- [ ] Inspect the repository, video and screenshots for secrets
-
-Prepare the post and submission for a human to publish; running the starter kit
-does not publish either automatically.
+_Prepared for a human to publish. Running the kit does not publish or submit._

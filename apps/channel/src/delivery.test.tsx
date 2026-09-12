@@ -1,23 +1,28 @@
-import { it } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { AbstractAgent } from "@ag-ui/client";
 import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/core";
 import { from, type Observable } from "rxjs";
 import { createChannel } from "@copilotkit/channels";
 import { startChannelsWithGatewayControl } from "@copilotkit/channels-intelligence";
-import type { searchWeb } from "agent-core";
-import { IncidentCard } from "./components";
-import { createSearchTool } from "./search";
+import { readProject } from "agent-core/lore";
+import { LoreCard } from "./components";
+import { captureToBrain } from "./tools";
 import { ManagedGateway, preparedDelivery } from "./testing/managed-gateway";
 
-/** Real AG-UI events exercise the SDK tool loop and Slack renderer together. */
-class ResearchAgent extends AbstractAgent {
+/**
+ * Real AG-UI events exercise the SDK tool loop and Slack renderer together: the
+ * agent first calls `capture_to_brain` (a real tool that writes a file and posts
+ * a receipt), then renders a `lore_card` (an agent-rendered component). A final
+ * run with no tool call ends the loop.
+ */
+class LoreAgent extends AbstractAgent {
   private iteration = 0;
-  constructor(private readonly withIncident = true) {
-    super();
-  }
-  override clone(): ResearchAgent {
-    const clone = new ResearchAgent(this.withIncident);
+  override clone(): LoreAgent {
+    const clone = new LoreAgent();
     clone.threadId = this.threadId;
     clone.setMessages([...this.messages]);
     clone.setState(this.state);
@@ -26,22 +31,28 @@ class ResearchAgent extends AbstractAgent {
   }
   run(input: RunAgentInput): Observable<BaseEvent> {
     const calls = [
-      { name: "search_web", args: { query: "retry storm", results: 1 } },
       {
-        name: "incident_card",
+        name: "capture_to_brain",
         args: {
-          severity: "sev2",
-          headline: "Retries are amplifying latency",
-          impact: "Checkout requests time out",
-          started: "09:03 UTC",
-          known: ["Connection-pool wait increased"],
-          trying: ["Investigating retry policy"],
+          project: "Auth Service",
+          kind: "decision",
+          summary: "Switch auth from JWT to server-side sessions.",
+          owner: "Dana",
+          sourceRef: "1699.0001",
+          sourceAuthor: "priya",
+        },
+      },
+      {
+        name: "lore_card",
+        args: {
+          project: "Auth Service",
+          title: "Sessions replace JWT",
+          body: "The team switched auth to server-side sessions.",
+          sources: [{ who: "priya", ref: "1699.0001" }],
         },
       },
     ];
     const call = calls[this.iteration++];
-    const activeCall =
-      this.withIncident || this.iteration === 1 ? call : undefined;
     const events: BaseEvent[] = [
       {
         type: EventType.RUN_STARTED,
@@ -49,18 +60,18 @@ class ResearchAgent extends AbstractAgent {
         runId: input.runId,
       },
     ];
-    if (activeCall) {
+    if (call) {
       const toolCallId = `tool_${this.iteration}`;
       events.push(
         {
           type: EventType.TOOL_CALL_START,
           toolCallId,
-          toolCallName: activeCall.name,
+          toolCallName: call.name,
         },
         {
           type: EventType.TOOL_CALL_ARGS,
           toolCallId,
-          delta: JSON.stringify(activeCall.args),
+          delta: JSON.stringify(call.args),
         },
         { type: EventType.TOOL_CALL_END, toolCallId },
       );
@@ -74,15 +85,15 @@ class ResearchAgent extends AbstractAgent {
   }
 }
 
-async function runResearch(search: typeof searchWeb, withIncident = true) {
+async function runLore() {
   const gateway = new ManagedGateway();
   const channel = createChannel({
     name: "support",
     identifyUser: "platform",
     showToolStatus: true,
-    agent: () => new ResearchAgent(withIncident),
-    components: [IncidentCard],
-    tools: [createSearchTool(search)],
+    agent: () => new LoreAgent(),
+    components: [LoreCard],
+    tools: [captureToBrain],
   });
   let failure: unknown;
   channel.onMessage(async ({ thread }) => {
@@ -97,7 +108,7 @@ async function runResearch(search: typeof searchWeb, withIncident = true) {
   const handle = await startChannelsWithGatewayControl([channel], {
     session: gateway,
     scope: { projectId: 1, channelName: "support" },
-    runtimeInstanceId: "rti_research",
+    runtimeInstanceId: "rti_lore",
     loadHistory: async () => [],
     appApiBaseUrl: "https://api.example",
     apiKey: "cpk-offline-test",
@@ -128,9 +139,9 @@ async function runResearch(search: typeof searchWeb, withIncident = true) {
   });
   try {
     await gateway.deliver(
-      preparedDelivery("research", "slack", {
+      preparedDelivery("lore", "slack", {
         kind: "text",
-        text: "Research the incident and show a card",
+        text: "Capture this thread and summarise what we decided",
       }),
     );
     return {
@@ -144,87 +155,78 @@ async function runResearch(search: typeof searchWeb, withIncident = true) {
   }
 }
 
-it(
-  "clears native Slack status before completing a research run with only tool cards",
-  { timeout: 10_000 },
-  async () => {
-    const { gateway, payloads, failure, agentMessages } = await runResearch(
-      async () => [
-        { title: "Retry guidance", url: "https://example.com/retries" },
-      ],
-    );
-    assert.equal(failure, undefined);
-    const cards = payloads.filter(
-      (payload) => payload.kind === "slack.message.create",
-    );
-    assert.equal(cards.length, 2, JSON.stringify({ payloads, agentMessages }));
-    assert.match(JSON.stringify(cards[0]), /Search sources/);
-    assert.match(JSON.stringify(cards[1]), /Retries are amplifying latency/);
-    const statuses = payloads.filter(
-      (payload) => payload.kind === "slack.thread.status",
-    );
-    assert.ok(
-      statuses.some((payload) => payload.status !== ""),
-      "must exercise the native working indicator",
-    );
-    assert.equal(
-      statuses.at(-1)?.status,
-      "",
-      "last status effect must clear the working indicator",
-    );
-    const streamStop = payloads.findIndex(
-      (payload) => payload.kind === "slack.stream.stop",
-    );
-    assert.ok(
-      streamStop >= 0 && streamStop < payloads.length - 1,
-      "native stream must stop before terminal completion",
-    );
-    const terminal = payloads.at(-1);
-    assert.ok(terminal?.kind === "channel.delivery.terminal");
-    assert.equal(terminal.status, "complete");
-    assert.deepEqual(
-      gateway.packets.map((packet) => packet.seq),
-      payloads.map((_, index) => index),
-    );
-  },
-);
+describe("managed lore delivery", () => {
+  it(
+    "runs the tool loop over managed delivery: writes the brain and lowers a lore_card into Slack",
+    { timeout: 10_000 },
+    async () => {
+      const previous = process.env.LORE_BRAIN_DIR;
+      const dir = await mkdtemp(path.join(os.tmpdir(), "lore-delivery-"));
+      process.env.LORE_BRAIN_DIR = dir;
+      try {
+        const { gateway, payloads, failure, agentMessages } = await runLore();
+        assert.equal(failure, undefined);
 
-it(
-  "shows search failure when the agent catches a tool error and finishes without prose",
-  { timeout: 10_000 },
-  async () => {
-    const { payloads, failure, agentMessages } = await runResearch(async () => {
-      throw new Error("Exa is unavailable");
-    }, false);
-    assert.equal(
-      failure,
-      undefined,
-      "the SDK catches ordinary tool errors inside the agent loop",
-    );
-    const cards = payloads.filter(
-      (payload) => payload.kind === "slack.message.create",
-    );
-    assert.equal(
-      cards.length,
-      1,
-      "the user must see the search failure even when the agent says nothing",
-    );
-    assert.match(JSON.stringify(cards[0]), /Web search failed/);
-    assert.ok(!JSON.stringify(cards[0]).includes("Search sources"));
-    assert.ok(
-      agentMessages.some(
-        (message) =>
-          message.role === "tool" &&
-          String(message.content).includes("Exa is unavailable"),
-      ),
-      "the model must still receive the original failure",
-    );
-    const terminal = payloads.at(-1);
-    assert.ok(terminal?.kind === "channel.delivery.terminal");
-    assert.equal(
-      terminal.status,
-      "complete",
-      "delivery completion must not be confused with successful research",
-    );
-  },
-);
+        const cards = payloads.filter(
+          (payload) => payload.kind === "slack.message.create",
+        );
+        // Two native cards: the receipt the capture tool posts, then the
+        // agent-rendered lore_card. Both are real JSX lowered to Block Kit.
+        assert.equal(
+          cards.length,
+          2,
+          JSON.stringify({ payloads, agentMessages }),
+        );
+        assert.match(JSON.stringify(cards[0]), /Captured to Lore/);
+        // The lore_card lowered into the Slack IR — project and title present.
+        assert.match(JSON.stringify(cards[1]), /Auth Service/);
+        assert.match(JSON.stringify(cards[1]), /Sessions replace JWT/);
+
+        // The tool loop did a real write: the brain now holds the cited decision.
+        const read = await readProject("Auth Service");
+        assert.equal(read.exists, true, "capture must leave a file on disk");
+        assert.match(
+          read.markdown,
+          /Switch auth from JWT to server-side sessions\./,
+        );
+
+        // The capture confirmation fed back to the model through the tool loop,
+        // naming the file slug — proof the loop closed, not just fired.
+        assert.ok(
+          agentMessages.some(
+            (message) =>
+              message.role === "tool" &&
+              String(message.content).includes("auth-service"),
+          ),
+          "the capture tool result must return to the model",
+        );
+
+        // Managed delivery completed cleanly, and the native working indicator
+        // was exercised and then cleared.
+        const statuses = payloads.filter(
+          (payload) => payload.kind === "slack.thread.status",
+        );
+        assert.ok(
+          statuses.some((payload) => payload.status !== ""),
+          "must exercise the native working indicator",
+        );
+        assert.equal(
+          statuses.at(-1)?.status,
+          "",
+          "the working indicator must clear before completion",
+        );
+        const terminal = payloads.at(-1);
+        assert.ok(terminal?.kind === "channel.delivery.terminal");
+        assert.equal(terminal.status, "complete");
+        assert.deepEqual(
+          gateway.packets.map((packet) => packet.seq),
+          payloads.map((_, index) => index),
+        );
+      } finally {
+        if (previous === undefined) delete process.env.LORE_BRAIN_DIR;
+        else process.env.LORE_BRAIN_DIR = previous;
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+});

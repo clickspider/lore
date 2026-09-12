@@ -1,9 +1,12 @@
 /**
- * Agent-rendered components for the on-call agent.
+ * Lore's native cards.
  *
- * `defineChannelComponent` turns a component into a tool the agent can call to
- * draw UI itself. During an incident, a native card is easier to scan than a
- * paragraph, but everyone reads a card.
+ * Two shapes:
+ *  - `captureCard` is a plain JSX factory the capture tool posts itself, so the
+ *    card is a deterministic receipt of a real file write — not something the
+ *    model might paraphrase.
+ *  - `LoreCard` is an agent-rendered component (`defineChannelComponent` = a tool
+ *    the agent can call) for presenting an answer with its citations.
  *
  * One tree renders as Slack Block Kit, Teams Adaptive Cards, and Discord
  * components. A surface that cannot render a node skips it rather than failing.
@@ -20,103 +23,102 @@ import {
   Divider,
   Actions,
   Button,
-  Table,
-  Row,
-  Cell,
 } from "@copilotkit/channels";
+import type { CaptureResult } from "agent-core/lore";
+import path from "node:path";
 import { z } from "zod";
 
-/** Severity drives the colour rail, so the channel can triage by glance. */
-const SEVERITY = {
-  sev1: { accent: "#C4145F", label: "SEV1 · customer-facing" },
-  sev2: { accent: "#8A5C10", label: "SEV2 · degraded" },
-  sev3: { accent: "#5B6478", label: "SEV3 · internal" },
-  resolved: { accent: "#2E7D5B", label: "RESOLVED" },
-} as const;
+/** Green rail — this card marks knowledge that is now on disk. */
+const CAPTURED_ACCENT = "#2E7D5B";
+/** Blue-grey rail — a read-back answer, grounded in the brain. */
+const ANSWER_ACCENT = "#3B6EA5";
+
+function shortPath(absolute: string): string {
+  const marker = `${path.sep}brain${path.sep}`;
+  const at = absolute.indexOf(marker);
+  return at >= 0 ? absolute.slice(at + 1) : absolute;
+}
+
+function citation(source: CaptureResult["entry"]["source"]): string {
+  return [
+    source.platform,
+    source.author ? `from ${source.author}` : undefined,
+    source.ref ? `(${source.ref})` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 /**
- * The state of the incident, as one glanceable card.
- *
- * Deliberately has no "what happened" prose field. The thread is the narrative;
- * this is the summary a person joining at minute 40 needs.
+ * The receipt for a real capture: what Lore folded into the brain, cited, and
+ * the file it now lives in. Posted by the capture tool, not the model.
  */
-export const IncidentCard = defineChannelComponent({
-  name: "incident_card",
-  description:
-    "Draw the current state of the incident as a card: severity, what is affected, what is known, and what is being tried. Call this once you have read the thread, and call it again when the picture changes. Prefer it over describing the incident in prose.",
-  parameters: z.object({
-    severity: z.enum(["sev1", "sev2", "sev3", "resolved"]),
-    headline: z.string().describe("What is broken, in under ten words."),
-    impact: z.string().describe("Who or what is affected, concretely."),
-    started: z.string().describe("When it started, as stated in the thread. 'unknown' is a valid answer."),
-    known: z.array(z.string()).max(4).default([]).describe("What the thread has established."),
-    trying: z.array(z.string()).max(3).default([]).describe("What is currently being attempted."),
-    owner: z.string().optional().describe("Who is driving, if the thread says."),
-  }),
-  render({ severity, headline, impact, started, known, trying, owner }) {
-    const sev = SEVERITY[severity];
-    return (
-      <Message accent={sev.accent}>
-        <Header>{headline}</Header>
-        <Context>{sev.label}</Context>
-        <Fields>
-          <Field label="Impact">{impact}</Field>
-          <Field label="Started">{started}</Field>
-          {owner && <Field label="Driving">{owner}</Field>}
-        </Fields>
-        {known.length > 0 && (
-          <Section>
-            <Markdown>{`*What we know*\n${known.map((k) => `• ${k}`).join("\n")}`}</Markdown>
-          </Section>
+export function captureCard(result: CaptureResult) {
+  const { entry } = result;
+  return (
+    <Message accent={CAPTURED_ACCENT}>
+      <Header>Captured to Lore</Header>
+      <Context>{`${result.project} · ${entry.kind.replace("_", " ")}`}</Context>
+      <Section>
+        <Markdown>{entry.summary}</Markdown>
+      </Section>
+      <Fields>
+        {entry.owner && <Field label="Owner">{entry.owner}</Field>}
+        {entry.openQuestion && (
+          <Field label="Open question">{entry.openQuestion}</Field>
         )}
-        {trying.length > 0 && (
-          <Section>
-            <Markdown>{`*Being tried*\n${trying.map((t) => `• ${t}`).join("\n")}`}</Markdown>
-          </Section>
-        )}
-      </Message>
-    );
-  },
-});
+        <Field label="Source">{citation(entry.source)}</Field>
+      </Fields>
+      <Divider />
+      <Context>
+        {`Written to ${shortPath(result.path)} — plain markdown on this machine.`}
+      </Context>
+    </Message>
+  );
+}
 
 /**
- * The incident timeline. Handover and the postmortem both run on this, which is
- * why it is worth keeping in the thread rather than someone's notes app.
+ * An agent-rendered answer, grounded in the brain. The agent fills `body` from
+ * what query_brain returned and lists the sources it quoted.
  */
-export const Timeline = defineChannelComponent({
-  name: "timeline",
+export const LoreCard = defineChannelComponent({
+  name: "lore_card",
   description:
-    "Draw an ordered timeline of what happened when. Call this when there are three or more events worth ordering — it is what on-call handover and the postmortem are written from.",
+    "Present project knowledge or an answer as a card: a short body grounded in the brain, and the sources it came from. Call this instead of writing a paragraph when you are answering from query_brain or summarising what you captured. Only list sources the brain actually contains — never invent one.",
   parameters: z.object({
-    title: z.string().default("Timeline"),
-    events: z
+    project: z.string().describe("The project this is about."),
+    title: z.string().describe("A short headline for the answer, under ten words."),
+    body: z
+      .string()
+      .describe("The answer, grounded strictly in the brain. Markdown allowed."),
+    sources: z
       .array(
         z.object({
-          at: z.string().describe("Time as the thread states it, e.g. '02:14' or '~20m ago'."),
-          what: z.string().describe("What happened, in one line."),
-          who: z.string().optional(),
+          who: z.string().optional().describe("Who said it, if the brain records it."),
+          ref: z.string().describe("The cited pointer, e.g. a message ts or line."),
         }),
       )
-      .min(1)
-      .max(12),
+      .max(6)
+      .default([])
+      .describe("Citations quoted from the brain. Empty if none apply."),
   }),
-  render({ title, events }) {
+  render({ project, title, body, sources }) {
     return (
-      <Message>
+      <Message accent={ANSWER_ACCENT}>
         <Header>{title}</Header>
-        <Table
-          columns={[{ header: "When" }, { header: "What" }, { header: "Who" }]}
-        >
-          {events.map((event) => (
-            <Row>
-              <Cell>{event.at}</Cell>
-              <Cell>{event.what}</Cell>
-              <Cell>{event.who ?? "—"}</Cell>
-            </Row>
-          ))}
-        </Table>
-        <Divider />
-        <Context>{`${events.length} event(s) · newest last`}</Context>
+        <Context>{project}</Context>
+        <Section>
+          <Markdown>{body}</Markdown>
+        </Section>
+        {sources.length > 0 && (
+          <Section>
+            <Markdown>
+              {`*Sources*\n${sources
+                .map((s) => `• ${s.who ? `${s.who} — ` : ""}${s.ref}`)
+                .join("\n")}`}
+            </Markdown>
+          </Section>
+        )}
       </Message>
     );
   },
@@ -124,22 +126,24 @@ export const Timeline = defineChannelComponent({
 
 /**
  * The welcome message. A bot that says nothing when invited looks broken; one
- * that says what it will do on its own gets used.
+ * that says what it will do gets used.
  */
 export function welcomeMessage(platform: string) {
   return (
-    <Message accent="#C4145F">
-      <Header>On-call assistant, in the thread</Header>
+    <Message accent={CAPTURED_ACCENT}>
+      <Header>Lore — your projects' memory, in the thread</Header>
       <Section>
         <Markdown>
-          {"When something breaks, @-mention me. I read what has already been said in this " +
+          {"@-mention me in a " +
             platform +
-            " thread first — you should never have to re-explain an outage to me."}
+            " thread and I read what was said, fold the decisions, owners, and open " +
+            "questions into a per-project markdown brain on this machine, and cite the " +
+            "source. Later, ask me *what did we decide about X* and I answer from the brain."}
         </Markdown>
       </Section>
       <Fields>
-        <Field label="I will">Summarise, keep a timeline, look things up</Field>
-        <Field label="I won't">Touch production without a click</Field>
+        <Field label="I will">Capture decisions, keep a cited project memory</Field>
+        <Field label="I won't">Send anything off this machine</Field>
       </Fields>
       <Actions>
         <Button
@@ -148,11 +152,11 @@ export function welcomeMessage(platform: string) {
           onClick={async ({ thread }) => {
             await thread.runAgent({
               prompt:
-                "Read this thread and bring me up to speed on the incident. Draw the incident card.",
+                "Read this thread and capture any decisions, owners, or open questions into the right project's brain. Then show a lore_card summary of what you captured.",
             });
           }}
         >
-          Catch me up
+          Capture this thread
         </Button>
       </Actions>
     </Message>

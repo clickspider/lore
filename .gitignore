@@ -13,3 +13,17 @@ apps/mobile/.expo/
 
 # Web approval and attempt metadata (not task storage)
 .data/
+
+# CopilotKit CLI skill-install artifacts (tooling, not project code)
+/agent/
+skills-lock.json
+
+# Local secrets provisioned by the CLI
+.copilotkit/artifacts/
+
+# Added by CopilotKit CLI: credential files, which must never be committed.
+.env.*
+!.env.example
+
+# Added by CopilotKit CLI: managed Channel setup credentials and artifacts.
+.copilotkit/artifacts/

@@ -1,17 +1,17 @@
 import { createChannel } from "@copilotkit/channels";
-import { isSearchConfigured, isWorkplaceConfigured, WORKPLACE_CONTEXT } from "agent-core";
-import { makeChannelAgent } from "./agent";
+import { makeAgent, isObsidianConfigured, OBSIDIAN_CONTEXT } from "agent-core";
+import { ChannelRunAgent } from "./agent";
 import { required } from "./env";
-import { IncidentCard, Timeline, welcomeMessage } from "./components";
-import { proposeAction, readThread, searchTheWeb } from "./tools";
+import { LoreCard, welcomeMessage } from "./components";
+import { readThread, captureToBrain } from "./tools";
+import { LORE_SYSTEM_PROMPT } from "./prompt";
 
-// Tools are registered only when their credential is present, so the agent is
-// never handed a tool that will fail when it calls it.
-const tools = [
-  readThread,
-  proposeAction,
-  ...(isSearchConfigured() ? [searchTheWeb] : []),
-];
+// Lore uses only the model provider and Channels — no web search and no cloud
+// workplace. The brain is local-first, so nothing is registered that would send
+// project knowledge off this machine. Lore captures; retrieval is delegated to
+// the Karpathy LLM Wiki over the Obsidian MCP (registered on the agent when
+// OBSIDIAN_MCP_URL is configured), so we never rebuild graph retrieval here.
+const tools = [readThread, captureToBrain];
 
 export const channel = createChannel({
   // Must equal the Channel Code in Intelligence, character for character. A
@@ -24,32 +24,46 @@ export const channel = createChannel({
   // web requests and must be absent on a Channels-only runtime.
   identifyUser: "platform",
 
-  agent: makeChannelAgent,
+  // Lore's own prompt and no cloud workplace MCP. This leaves the shared
+  // web/mobile agent factory untouched — the domain swap lives here.
+  agent: (threadId) =>
+    new ChannelRunAgent(
+      (innerThreadId) =>
+        makeAgent(innerThreadId, {
+          prompt: LORE_SYSTEM_PROMPT,
+          workplace: false,
+        }),
+      threadId,
+    ),
+
   tools,
-  components: [IncidentCard, Timeline],
+  components: [LoreCard],
 
   // Injected into the agent's prompt on every run.
   context: [
-    
     {
       description: "Rendering",
       value:
-        "You can draw native UI by calling incident_card or timeline. Prefer them over prose whenever the answer has structure.",
+        "You can draw a native card by calling lore_card. Prefer it over prose when presenting captured knowledge or an answer with sources.",
     },
-    ...(isWorkplaceConfigured()
-      ? [{ description: "Workplace", value: WORKPLACE_CONTEXT }]
-      : []),
     {
       description: "Surface",
       value:
-        "This is a chat thread in a channel people are actively working in. Assume others are reading and that some joined late.",
+        "This is a chat thread in a channel people are actively working in. The conversation here is the raw material you capture from; assume others are reading.",
     },
+    {
+      description: "Memory",
+      value:
+        "The brain is a per-project markdown store on this machine. Your job here is to capture what will matter next week — decisions, owners, open questions — each with a citation. Retrieval and cross-project questions are answered by the Karpathy LLM Wiki over the Obsidian MCP when it is connected, not by re-reading the raw notes yourself.",
+    },
+    ...(isObsidianConfigured()
+      ? [{ description: "Retrieval", value: OBSIDIAN_CONTEXT }]
+      : []),
   ],
-
 });
 
-// A mention subscribes the conversation, so the agent then follows along instead
-// of needing to be @-mentioned every single turn.
+// A mention subscribes the conversation, so Lore then follows along instead of
+// needing to be @-mentioned every single turn.
 channel.onMention(async ({ thread }) => {
   await thread.subscribe();
   await thread.runAgent();

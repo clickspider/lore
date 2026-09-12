@@ -1,80 +1,85 @@
-# Slack thread agent
+# Lore — the project memory that writes itself
 
-**OpenAI + CopilotKit Channels + Exa**
+**OpenAI + CopilotKit Channels + a local Obsidian/Karpathy brain**
 
-Build an agent that reads an existing conversation, researches what matters, and replies in the same Slack thread with native cards and source links. Try a team research discussion, support handoff, project decision, or incident review. The included incident scenario shows how the infrastructure fits together; replace it with your own workflow.
+Lore lives in your team chat. It reads the thread, decides what is durable — a
+decision, an owner, an open question — routes it to the right project, and writes
+it into a **local, git-versioned, per-project markdown brain** with a citation back
+to the exact source message. Retrieval, the entity graph, and cross-project Q&A are
+delegated to the **Karpathy LLM Wiki** in your own Obsidian, reached over MCP.
 
-[![Slack thread agent demo](../../assets/demos/slack.gif)](../../assets/demos/slack.mp4)
+> Slack is the demo surface. Teams is the target — the same Channels code, a
+> documented next adapter. We do not claim a live Teams integration.
 
-_Scroll through a completed Slack thread: incident context, Exa source cards, and the final answer. The preview is sped up; click it for the full MP4._
+## What Lore builds vs. reuses
+
+- **Builds:** capture from Slack/Teams → cited notes, a source-agnostic
+  ingestion endpoint, a git change-ledger, the CopilotKit agent + surfaces.
+- **Reuses (builds zero of):** retrieval, graph, dedup, cross-project Q&A →
+  the Karpathy LLM Wiki over the Obsidian MCP. The brain is portable markdown, so
+  any harness (GitHub Copilot, Claude) can query it too.
 
 ## Get started
 
-Complete the [root clone/install steps](../../README.md#get-started), then configure `.env` with [OpenAI](../../using-sponsor-tools.md#openai), [CopilotKit Intelligence](../../using-sponsor-tools.md#copilotkit), and [Exa](../../using-sponsor-tools.md#exa):
+1. Root install: `npm ci` then `cp .env.example .env`.
+2. Fill `.env` — see [SETUP.md](../../SETUP.md) for exactly which keys to get
+   (OpenAI + CopilotKit Intelligence + a Slack workspace; Obsidian is local).
+3. Connect Slack (creates the managed Channel, prints `CHANNEL_CODE`):
+   ```bash
+   npm run channel:setup -- --no-clipboard
+   ```
+   Follow the emitted prompt with the installed `channels-setup` skill; select
+   Slack and reuse this `apps/channel` app. No public tunnel or Slack app token is
+   needed on the managed path.
+4. Run it:
+   ```bash
+   npm run dev:slack
+   ```
+   Invite the bot to a channel and @-mention it in a populated thread.
 
-```dotenv
-MODEL_PROVIDER=openai
-OPENAI_API_KEY=your-key
-MODEL=gpt-5.6-sol
-CHANNEL_CODE=your-channel-code
-INTELLIGENCE_API_KEY=your-project-key
-EXA_API_KEY=your-key
-EXA_SEARCH_TYPE=fast
-```
+## The complete interaction
 
-Choose an OpenAI model available to your account. Start the official onboarding handoff:
+1. A few real messages land in a Slack thread ("we're moving auth from JWT to
+   sessions; Dana owns it; open q: mobile refresh").
+2. @-mention Lore. It calls `read_thread`, then `capture_to_brain` per item.
+3. **The visible result:** a real file `LORE_BRAIN_DIR/auth-service.md` appears
+   (cited, `[[wikilinked]]`), a **receipt card** renders in the thread, and the
+   change is a **git commit** in the vault (`git log`; undo with `git revert`).
+4. With Obsidian connected (`OBSIDIAN_*` in `.env`), ask a question — the agent
+   queries the Karpathy wiki over MCP and answers with citations and the graph.
+
+## Ingest from any source (not just Slack)
+
+The same brain is fed by a source-agnostic ingestion core:
 
 ```bash
-npm run channel:setup -- --no-clipboard
+# A Teams meeting transcript → the brain
+npm run lore:ingest "Auth Service" assets/samples/teams-standup-2026-09-12.md
+
+# Or run the endpoint and POST content from anything (webhook, email, curl)
+npm run lore:ingest-server
+curl -sX POST 127.0.0.1:3141/ingest \
+  -H 'content-type: application/json' \
+  -d '{"project":"Auth Service","content":"...transcript or chat text..."}'
 ```
 
-This installs the maintained `channels-setup` skill and prints a prompt. Give that prompt to your coding agent in this checkout and specify **Slack**, using the existing `apps/channel` app. Have the agent follow the skill through sign-in, project/Channel configuration, Slack installation, and a real reply. The command alone does not create the Channel. Keep existing `.env` values; the listener reads `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`. The [shared onboarding notes](../../README.md#copilotkit-onboarding) explain CLI credential naming; the [setup guide](../../dev-docs/setup.md) and [screenshot walkthrough](../../dev-docs/channels-sdk-walkthrough/README.md) provide manual reference.
-
-```bash
-npm run dev:slack
-```
-
-Invite the bot to a Slack channel and mention it in a populated thread. CopilotKit Intelligence manages the Slack connection; this listener needs no public tunnel or Slack app token on the managed path.
-
-## Try the flow
-
-1. Add two or three facts to a Slack thread before mentioning the agent.
-2. Ask it to catch up using the thread and render a card. Verify facts came from earlier messages rather than your last prompt.
-3. Ask it to research a related question with Exa. `search_web` posts native **Search sources** cards when sources are returned; open the links and separate published evidence from facts in your thread.
-4. Ask a follow-up that relies on the discussion. Check the answer and card remain in the same thread.
-
-Use [demo prompts](../../dev-docs/demo-prompts.md#slack-context-sources-card-follow-up) for exact incident inputs. If you add an external write, enforce approval in code before that write. The included proposal card records a decision without executing a production action.
-
-## Customize these files
+## Customize
 
 | Piece | File |
 |---|---|
-| Agent and model | [Shared agent factory](../../packages/agent-core/src/agent.ts), using CopilotKit's built-in agent |
-| Channel lifecycle | [src/channel.tsx](src/channel.tsx): mention, subscribe, respond to subscribed messages |
-| Channel-only run adapter | [src/agent.ts](src/agent.ts): keeps outer transcript/state while using fresh inner agent runs |
-| Thread context and research | [src/tools.tsx](src/tools.tsx) and [src/search.tsx](src/search.tsx): `read_thread` and Exa-backed `search_web` |
-| Native cards | [src/components.tsx](src/components.tsx): incident card and timeline via Channels JSX |
-| Prompt | [Shared prompt](../../packages/agent-core/src/prompt.ts) |
+| The brain (vault format, cited entries) | [`packages/agent-core/src/lore/brain.ts`](../../packages/agent-core/src/lore/brain.ts) |
+| Ingestion core + Teams/HTTP adapters | [`packages/agent-core/src/lore/ingest.ts`](../../packages/agent-core/src/lore/ingest.ts), [`src/ingest.ts`](src/ingest.ts), [`src/ingest-server.ts`](src/ingest-server.ts) |
+| Capture tools + cards | [`src/tools.tsx`](src/tools.tsx), [`src/components.tsx`](src/components.tsx) |
+| Retrieval delegation (Obsidian MCP) | [`packages/agent-core/src/capabilities/obsidian.ts`](../../packages/agent-core/src/capabilities/obsidian.ts) |
+| Git change-ledger | [`src/ledger.ts`](src/ledger.ts) |
+| Prompt / role | [`src/prompt.ts`](src/prompt.ts) |
 
-OpenRouter can be used as the model gateway through the shared provider settings in [using-sponsor-tools.md](../../using-sponsor-tools.md#openrouter). Teams or another messaging platform can reuse the Channels pattern, but this starter app is wired for managed Slack.
+## Verify
 
-## Give this to your coding agent
+`npm run verify` runs typechecks + offline tests without credentials. The brain,
+ingestion, and ledger are covered offline; live Slack delivery, model extraction,
+and Obsidian retrieval need your accounts and are demonstrated separately.
 
-```text
-Read the root hackathon overview, rules, sponsor guide, and AGENTS.md.
-Read .agents/skills/build-channels-agent/SKILL.md before changing Slack code.
-If Slack is not connected, run npm run channel:setup -- --no-clipboard
-from the repository root and follow its prompt using the channels-setup
-skill. Select Slack and connect the existing apps/channel app.
-Adapt apps/channel to our project's user and conversation. Preserve
-read_thread, use Exa when research helps, and render results with Channels JSX.
-Replace incident-specific schemas, tools, and prompts with our own workflow.
-Demonstrate that earlier messages change the answer and return source links.
-Run npm run verify and document the live Slack checks separately.
-```
-
-## Verify and limits
-
-Run `npm run verify` for root/channel typechecks and offline tests. Live Slack delivery, Exa search, and model responses require your own accounts and should be documented separately from local tests.
-
-Keep the pinned Channels/runtime pair and the `@ag-ui/client` override. The [Channels skill](../../.agents/skills/build-channels-agent/SKILL.md) supplies the verified API vocabulary. [Channels guide](https://copilotkit.ai/channels-guide.md) · [OpenTag reference app](https://github.com/CopilotKit/OpenTag)
+Keep the pinned Channels/runtime pair and the `@ag-ui/client` override. The
+[Channels skill](../../.agents/skills/build-channels-agent/SKILL.md) is the
+verified API reference.

@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./shared": "./src/shared.ts",
+    "./lore": "./src/lore/index.ts",
     "./mobile-finance-prompt": "./src/mobile-finance-prompt.ts"
   },
   "scripts": {

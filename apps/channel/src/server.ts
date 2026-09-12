@@ -10,7 +10,9 @@ import { channel } from "./channel";
 import { required } from "./env";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: required("INTELLIGENCE_API_KEY"),
+  // `copilotkit project select` writes CPK_INTELLIGENCE_API_KEY; accept either so
+  // a fresh CLI setup and a hand-edited .env both work.
+  apiKey: process.env.INTELLIGENCE_API_KEY || required("CPK_INTELLIGENCE_API_KEY"),
   // Hosted Intelligence supplies both defaults. Override both together only for
   // self-hosted — they are separate hosts, so never derive one from the other.
   apiUrl: process.env.INTELLIGENCE_API_URL,

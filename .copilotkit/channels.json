@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "channels": [
+    {
+      "name": "lore",
+      "displayName": "Lore",
+      "providers": {
+        "slack": {
+          "env": {
+            "botToken": "INTELLIGENCE_CHANNEL_LORE_SLACK_BOT_TOKEN",
+            "signingSecret": "INTELLIGENCE_CHANNEL_LORE_SLACK_SIGNING_SECRET"
+          }
+        }
+      }
+    }
+  ]
+}
