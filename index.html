@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Lore is a local-first AI chief of staff with a living, queryable memory of every project you touch."
+    />
+    <meta name="theme-color" content="#0A0A0B" />
+    <title>Lore — Every project has lore.</title>
+    <link rel="icon" type="image/jpeg" sizes="512x512" href="assets/lore-logo.jpeg" />
+    <link rel="apple-touch-icon" sizes="512x512" href="assets/lore-logo.jpeg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="landing.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header shell">
+      <a class="brand" href="#top" aria-label="Lore home">
+        <img src="assets/lore-logo.jpeg" alt="Lore" width="40" height="40" />
+        <span>Lore</span>
+      </a>
+      <a class="header-link" href="https://github.com/clickspider/lore">GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main id="main">
+      <section class="hero shell" id="top" aria-labelledby="hero-title">
+        <p class="eyebrow">LOCAL-FIRST PROJECT MEMORY <span aria-hidden="true">/</span> 01</p>
+        <h1 id="hero-title">Every project<br />has <em>lore.</em></h1>
+        <div class="hero-bottom">
+          <p class="hero-copy">
+            Lore writes it down. A local-first AI chief of staff that sits in your meetings and chats, and keeps a living, queryable memory of every project you touch.
+          </p>
+          <div class="actions" aria-label="Hero actions">
+            <a class="button button-primary" href="https://github.com/clickspider/lore">Star on GitHub <span aria-hidden="true">↗</span></a>
+            <a class="button button-secondary" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="process shell" id="how-it-works" aria-labelledby="process-title">
+        <div class="section-heading">
+          <p class="eyebrow">HOW IT WORKS <span aria-hidden="true">/</span> 02</p>
+          <h2 id="process-title">Memory, without<br />the archaeology.</h2>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <p class="step-index">01</p>
+            <h3>1. Onboard it</h3>
+            <p>Brief Lore like a new hire: your role, your projects, your duties per project.</p>
+          </li>
+          <li class="step">
+            <p class="step-index">02</p>
+            <h3>2. It experiences your work</h3>
+            <p>Lore reads your team chats and meeting transcripts, routes everything to the right project, and folds it into a living brain: decisions, owners, open questions - with citations to the exact source.</p>
+          </li>
+          <li class="step">
+            <p class="step-index">03</p>
+            <h3>3. You just ask</h3>
+            <p>"What did we decide about X?" - answered with receipts. Daily digest of what moved and what needs your follow-up. Queryable from GitHub Copilot, Claude, or any MCP client.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="brain shell" aria-labelledby="brain-title">
+        <div class="section-heading brain-heading">
+          <p class="eyebrow">THE BRAIN <span aria-hidden="true">/</span> 03</p>
+          <h2 id="brain-title">Nothing hidden<br />behind the answer.</h2>
+        </div>
+        <figure class="code-figure">
+          <div class="code-toolbar">
+            <span><i class="status-dot" aria-hidden="true"></i>brain.md</span>
+            <span>MARKDOWN</span>
+          </div>
+          <pre><code><span class="syntax-heading">## Decisions</span>
+<span class="syntax-dash">-</span> Claims flow v2 approved <span class="syntax-citation">(@sara, #claims-team 09:41)</span>
+
+<span class="syntax-heading">## Open Questions</span>
+<span class="syntax-dash">-</span> Who owns the MCP auth layer? <span class="syntax-citation">(standup 12/09)</span></code></pre>
+          <figcaption>The brain is plain markdown. Git-versioned, human-readable, open it in Obsidian. No black box.</figcaption>
+        </figure>
+      </section>
+
+      <section class="local shell" aria-labelledby="local-title">
+        <p class="eyebrow">LOCAL-FIRST <span aria-hidden="true">/</span> 04</p>
+        <div class="local-content">
+          <h2 id="local-title">Nothing leaves<br />your machine.</h2>
+          <p>Lore runs local-first. Your transcripts, your brain, your machine. In regulated industries this isn't a feature - it's the whole game. Self-host free, open source.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <p>Built at the AI Tinkerers 'Agents, Everywhere' hackathon, Eindhoven 2026.</p>
+      <a href="https://github.com/clickspider/lore">GitHub <span aria-hidden="true">↗</span></a>
+    </footer>
+  </body>
+</html>
