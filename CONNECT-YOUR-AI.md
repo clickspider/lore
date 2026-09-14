@@ -5,6 +5,9 @@ it over MCP at a local URL such as `http://127.0.0.1:27200/mcp`. Any
 MCP-capable tool can read and search the project notes. Obsidian must keep
 running while a local client uses the brain.
 
+Need the Obsidian plugin setup or the optional graph/wiki layer? Start with
+[OBSIDIAN-SETUP.md](OBSIDIAN-SETUP.md).
+
 > Keep Obsidian open with the MCP Connector enabled. Your token is in the
 > MCP Connector "Lore Core" pane (and in your repo `.env` as `OBSIDIAN_MCP_TOKEN`).
 

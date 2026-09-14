@@ -27,12 +27,12 @@ MODEL=gpt-5.6-sol               # or any model your account can call
 INTELLIGENCE_API_KEY=cpk-...     # <- paste (from Intelligence → API Keys)
 CHANNEL_CODE=                    # <- filled by `npm run channel:setup` (step B)
 
-# 4) Obsidian retrieval (local — from .context/obsidian-setup-for-daniel.md)
+# 4) Obsidian retrieval (local — see OBSIDIAN-SETUP.md)
 OBSIDIAN_MCP_URL=http://127.0.0.1:27200/mcp   # <- paste (MCP Connector)
 OBSIDIAN_MCP_TOKEN=              # <- paste (MCP Connector token)
 
 # Where Lore writes the brain — point it at a folder inside your Obsidian vault
-LORE_BRAIN_DIR=/Users/danielfrey/projects/daniel - project lore demo/lore
+LORE_BRAIN_DIR=/absolute/path/to/your/Obsidian-vault/lore
 ```
 
 ## What I do (you don't)
@@ -56,7 +56,7 @@ LORE_BRAIN_DIR=/Users/danielfrey/projects/daniel - project lore demo/lore
 1. You: paste **OpenAI** key (#1) → the ingestion/capture pipeline runs for real.
 2. You: paste **Intelligence** key (#2) → we run `channel:setup` together → Slack
    surface goes live.
-3. You: finish **Obsidian** (`.context/obsidian-setup-for-daniel.md`, paste the two
+3. You: finish **Obsidian** ([OBSIDIAN-SETUP.md](OBSIDIAN-SETUP.md), paste the two
    `OBSIDIAN_*` vars) → retrieval/graph goes live.
 
 Start chasing **#1 (OpenAI) and #2 (CopilotKit Intelligence)** — those are the two
